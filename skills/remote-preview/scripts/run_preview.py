@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Skill entrypoint for agy-remote-preview."""
 
-from pathlib import Path
 import sys
+from pathlib import Path
 
 
 def _ensure_importable() -> None:

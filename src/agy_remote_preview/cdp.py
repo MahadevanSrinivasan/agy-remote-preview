@@ -1,6 +1,7 @@
 """Minimal stdlib-only RFC 6455 WebSocket client for Chrome DevTools Protocol."""
 
 import base64
+import contextlib
 import hashlib
 import json
 import os
@@ -157,13 +158,11 @@ class CDPConnection:
         while (rem := deadline - time.monotonic()) > 0:
             try:
                 self._read_message(rem)
-            except (TimeoutError, socket.timeout, ConnectionError):
+            except (TimeoutError, ConnectionError):
                 break
 
     def close(self) -> None:
         """Close the underlying WebSocket connection."""
         for fn in (lambda: self._send_frame(0x8, b""), self._sock.close):
-            try:
+            with contextlib.suppress(OSError):
                 fn()
-            except Exception:
-                pass

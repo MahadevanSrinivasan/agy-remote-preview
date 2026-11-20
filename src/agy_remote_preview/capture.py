@@ -3,14 +3,16 @@
 from __future__ import annotations
 
 import base64
+import contextlib
 import os
-from pathlib import Path
 import shutil
 import signal
 import socket
 import subprocess
 import tempfile
 import time
+from http.client import HTTPException
+from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
@@ -73,12 +75,10 @@ def _wait_for_page_ws(port: int, proc: subprocess.Popen[bytes], timeout_s: float
     while time.monotonic() < deadline:
         if proc.poll() is not None:
             raise RuntimeError(f"Chromium exited early with code {proc.returncode}")
-        try:
+        with contextlib.suppress(OSError, ValueError, HTTPException):
             for target in fetch_json(url, timeout=1.0):
                 if target.get("type") == "page" and target.get("webSocketDebuggerUrl"):
                     return str(target["webSocketDebuggerUrl"])
-        except Exception:
-            pass
         time.sleep(0.1)
     raise TimeoutError(f"Timed out waiting {timeout_s}s for Chromium CDP on port {port}")
 
@@ -125,9 +125,12 @@ def _collect_telemetry(events: list[dict[str, Any]]) -> tuple[int | None, list[s
         elif method == "Network.responseReceived":
             resp = params.get("response", {})
             status = resp.get("status")
-            if params.get("type") == "Document" and isinstance(status, int):
-                if str(resp.get("url", "")).startswith(("http://", "https://")):
-                    http_status = status
+            if (
+                params.get("type") == "Document"
+                and isinstance(status, int)
+                and str(resp.get("url", "")).startswith(("http://", "https://"))
+            ):
+                http_status = status
             if isinstance(status, int) and status >= 400:
                 http_failures.append(f"{status} {resp.get('url', '')}".strip())
         elif method == "Network.loadingFailed":
@@ -207,10 +210,8 @@ def capture_preview(
         }
     finally:
         if cdp is not None:
-            try:
+            with contextlib.suppress(OSError, RuntimeError, ValueError):
                 cdp.call("Browser.close", timeout=2.0)
-            except Exception:
-                pass
             cdp.close()
         _terminate_browser(proc)
         for _ in range(5):

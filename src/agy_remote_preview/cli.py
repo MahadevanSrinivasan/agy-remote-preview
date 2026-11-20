@@ -6,11 +6,11 @@ import argparse
 import getpass
 import json
 import os
-from pathlib import Path
 import shutil
 import socket
 import subprocess
 import sys
+from pathlib import Path
 from typing import Any
 
 from .capture import capture_preview, render_artifact_markdown
@@ -31,13 +31,13 @@ def check_daemon() -> dict[str, Any]:
     agy_bin = shutil.which("agy")
     if agy_bin:
         try:
-            proc = subprocess.run([agy_bin, "remote-control", "status"], capture_output=True, text=True, timeout=15)
+            proc = subprocess.run([agy_bin, "remote-control", "status"], check=False, capture_output=True, text=True, timeout=15)
             out = (proc.stdout or proc.stderr or "").strip()
             result["agy_status"] = out or f"exit={proc.returncode}"
             if "inactive" in out.lower() or proc.returncode != 0:
                 result["warnings"].append("agy remote-control daemon is not active.")
                 result["suggestions"].append(f"agy remote-control start --name {host}")
-        except Exception as exc:
+        except (OSError, subprocess.SubprocessError) as exc:
             result["agy_status"] = f"error: {exc}"
     else:
         result["warnings"].append("agy CLI not found on PATH.")
@@ -47,6 +47,7 @@ def check_daemon() -> dict[str, Any]:
         try:
             proc = subprocess.run(
                 [loginctl, "show-user", user, "-p", "Linger"],
+                check=False,
                 capture_output=True,
                 text=True,
                 timeout=5,
@@ -58,7 +59,7 @@ def check_daemon() -> dict[str, Any]:
                 result["suggestions"].insert(0, f"sudo loginctl enable-linger {user}")
                 if not any("remote-control start" in s for s in result["suggestions"]):
                     result["suggestions"].append(f"agy remote-control start --name {host}")
-        except Exception as exc:
+        except (OSError, subprocess.SubprocessError) as exc:
             result["linger"] = f"error: {exc}"
     return result
 

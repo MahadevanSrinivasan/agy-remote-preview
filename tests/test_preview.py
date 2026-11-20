@@ -4,16 +4,16 @@ from __future__ import annotations
 
 import base64
 import contextlib
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import hashlib
 import io
 import json
-from pathlib import Path
 import socket
 import struct
 import tempfile
 import threading
 import unittest
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from unittest import mock
 
 from agy_remote_preview import capture_preview, render_artifact_markdown
@@ -135,10 +135,12 @@ class TestRemotePreview(unittest.TestCase):
             return proc
 
         out = io.StringIO()
-        with mock.patch("agy_remote_preview.cli.shutil.which", side_effect=_fake_which):
-            with mock.patch("agy_remote_preview.cli.subprocess.run", side_effect=_fake_run):
-                with contextlib.redirect_stdout(out):
-                    code = main(["--check-daemon"])
+        with (
+            mock.patch("agy_remote_preview.cli.shutil.which", side_effect=_fake_which),
+            mock.patch("agy_remote_preview.cli.subprocess.run", side_effect=_fake_run),
+            contextlib.redirect_stdout(out),
+        ):
+            code = main(["--check-daemon"])
         self.assertEqual(code, 0)
         text = out.getvalue()
         self.assertIn("WARNING:", text)
@@ -186,10 +188,10 @@ class TestRemotePreview(unittest.TestCase):
 
     def test_end_to_end_headless_chromium_capture(self) -> None:
         html = (
-            "<!doctype html><html><head><title>Preview E2E</title>"
-            "<style>body{margin:0;background:#111;color:#fff}@media(max-width:500px){body{background:#123}}</style></head>"
-            "<body><h1>Responsive</h1><script>console.error('TEST_CONSOLE_ERR');</script></body></html>"
-        ).encode("utf-8")
+            b"<!doctype html><html><head><title>Preview E2E</title>"
+            b"<style>body{margin:0;background:#111;color:#fff}@media(max-width:500px){body{background:#123}}</style></head>"
+            b"<body><h1>Responsive</h1><script>console.error('TEST_CONSOLE_ERR');</script></body></html>"
+        )
 
         class _Handler(BaseHTTPRequestHandler):
             def do_GET(self) -> None:
